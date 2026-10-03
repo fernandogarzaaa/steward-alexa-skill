@@ -31,6 +31,20 @@ Rules:
   actually returned."""
 
 
+def _message_text(message) -> str:
+    """Concatenate text blocks, skipping reasoning/thinking blocks.
+
+    Reasoning models (e.g. Nemotron) put chain-of-thought in
+    reasoningContent blocks; the user-visible reply is in text blocks.
+    """
+    parts = []
+    for block in message.get("content", []) or []:
+        text = block.get("text")
+        if text:
+            parts.append(text)
+    return "\n".join(parts).strip()
+
+
 def extract_tool_calls(messages: list) -> list[dict]:
     """Pull the tool calls out of a Strands message history.
 
@@ -104,7 +118,6 @@ class StewardAgent:
             raise RuntimeError("StewardAgent is not entered")
         result = self._agent(task)
         return {
-            "text": str(result.message["content"][0]["text"])
-            if result.message.get("content") else str(result),
+            "text": _message_text(result.message),
             "tool_calls": extract_tool_calls(self._agent.messages),
         }
