@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Steward - Alexa+ Agent Skill (simulated experience)</title>
+<style>
+  :root { color-scheme: dark; }
+  body { font-family: system-ui, -apple-system, sans-serif; background: #0d1117;
+         color: #e6edf3; margin: 0; display: flex; flex-direction: column;
+         height: 100vh; }
+  header { padding: 14px 20px; border-bottom: 1px solid #21262d; }
+  header h1 { font-size: 18px; margin: 0; }
+  header p { font-size: 12px; color: #8b949e; margin: 4px 0 0; }
+  #chat { flex: 1; overflow-y: auto; padding: 20px; display: flex;
+          flex-direction: column; gap: 12px; max-width: 760px; width: 100%;
+          margin: 0 auto; box-sizing: border-box; }
+  .msg { padding: 10px 14px; border-radius: 12px; max-width: 85%;
+         line-height: 1.45; white-space: pre-wrap; }
+  .user { align-self: flex-end; background: #1f6feb; }
+  .steward { align-self: flex-start; background: #161b22;
+             border: 1px solid #30363d; }
+  .tools { align-self: flex-start; font-size: 12px; color: #8b949e;
+           max-width: 85%; }
+  .tools code { background: #161b22; border: 1px solid #30363d;
+                border-radius: 6px; padding: 2px 6px; margin-right: 6px;
+                display: inline-block; margin-bottom: 4px; }
+  #bar { display: flex; gap: 10px; padding: 14px 20px;
+         border-top: 1px solid #21262d; max-width: 760px; width: 100%;
+         margin: 0 auto; box-sizing: border-box; }
+  #input { flex: 1; padding: 10px 14px; border-radius: 10px;
+           border: 1px solid #30363d; background: #161b22; color: #e6edf3;
+           font-size: 15px; }
+  button { padding: 10px 20px; border-radius: 10px; border: none;
+           background: #1f6feb; color: white; font-size: 15px; cursor: pointer; }
+  button:disabled { opacity: 0.5; cursor: default; }
+  .typing { color: #8b949e; font-style: italic; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Steward</h1>
+  <p>Alexa+ Agent Skill - simulated experience. Backed by a live self-hosted MCP server.</p>
+</header>
+<div id="chat"></div>
+<div id="bar">
+  <input id="input" type="text" placeholder="Ask Steward to run an errand..."
+         autocomplete="off">
+  <button id="send">Send</button>
+</div>
+<script>
+const chat = document.getElementById('chat');
+const input = document.getElementById('input');
+const sendBtn = document.getElementById('send');
+
+function addMsg(cls, text) {
+  const d = document.createElement('div');
+  d.className = 'msg ' + cls;
+  d.textContent = text;
+  chat.appendChild(d);
+  chat.scrollTop = chat.scrollHeight;
+  return d;
+}
+function addTools(calls) {
+  if (!calls || !calls.length) return;
+  const d = document.createElement('div');
+  d.className = 'tools';
+  d.textContent = 'tools used: ';
+  calls.forEach(c => {
+    const code = document.createElement('code');
+    code.textContent = c.name;
+    d.appendChild(code);
+  });
+  chat.appendChild(d);
+  chat.scrollTop = chat.scrollHeight;
+}
+
+async function send() {
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = '';
+  sendBtn.disabled = true;
+  addMsg('user', text);
+  const typing = addMsg('steward typing', 'Steward is working...');
+  try {
+    const r = await fetch('/api/chat', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({message: text})
+    });
+    const data = await r.json();
+    typing.remove();
+    if (!r.ok) {
+      addMsg('steward', 'Error: ' + (data.detail || r.status));
+    } else {
+      addMsg('steward', data.reply);
+      addTools(data.tool_calls);
+    }
+  } catch (e) {
+    typing.remove();
+    addMsg('steward', 'Error: ' + e.message);
+  }
+  sendBtn.disabled = false;
+  input.focus();
+}
+sendBtn.onclick = send;
+input.onkeydown = e => { if (e.key === 'Enter') send(); };
+addMsg('steward', 'Hi, I am Steward. Ask me to plan your day, set reminders, or keep notes.');
+input.focus();
+</script>
+</body>
+</html>
