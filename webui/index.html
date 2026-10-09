@@ -41,6 +41,7 @@
 <header>
   <h1>Steward</h1>
   <p>Alexa+ Agent Skill - simulated experience. Backed by a live self-hosted MCP server.</p>
+  <p id="demo-note" hidden></p>
 </header>
 <div id="chat"></div>
 <div id="bar">
@@ -105,6 +106,14 @@ async function send() {
 }
 sendBtn.onclick = send;
 input.onkeydown = e => { if (e.key === 'Enter') send(); };
+fetch('/api/health').then(r => r.json()).then(h => {
+  if (!h.demo) return;
+  const n = document.getElementById('demo-note');
+  const hrs = h.demo.reset_hours;
+  n.textContent = 'Public demo: what you save is visible only to this browser' +
+    (hrs ? ' and the demo resets every ' + hrs + ' hours.' : '.');
+  n.hidden = false;
+}).catch(() => {});
 addMsg('steward', 'Hi, I am Steward. Ask me to plan your day, set reminders, or keep notes.');
 input.focus();
 </script>

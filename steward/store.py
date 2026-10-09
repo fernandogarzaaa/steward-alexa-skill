@@ -7,6 +7,7 @@ override with the STEWARD_DB environment variable (tests use a temp file).
 from __future__ import annotations
 
 import os
+import re
 import sqlite3
 import threading
 from pathlib import Path
@@ -157,3 +158,72 @@ class Store:
     def close(self) -> None:
         with self._lock:
             self._conn.close()
+
+
+# Namespaces come from an HTTP header, so they also end up in a file name:
+# accept only short url-safe tokens (what secrets.token_urlsafe produces).
+_NAMESPACE_RE = re.compile(r"^[A-Za-z0-9_-]{8,64}$")
+
+
+def valid_namespace(ns: str | None) -> bool:
+    return bool(ns) and bool(_NAMESPACE_RE.match(ns))
+
+
+class StorePool:
+    """One Store per namespace, for the hosted multi-visitor demo.
+
+    The default namespace (None or "") is the classic single-user store at
+    ``base_path``, so local use is unchanged. Any valid namespace gets its
+    own SQLite file next to it: ``<base>.ns-<namespace>.db``. ``reset()``
+    drops every namespaced store (files included) and leaves the default
+    store alone; the hosted demo calls it on a timer.
+    """
+
+    def __init__(self, base_path: str | None = None) -> None:
+        self.base_path = base_path or default_db_path()
+        self._lock = threading.Lock()
+        self._default: Store | None = None
+        self._stores: dict[str, Store] = {}
+
+    def _ns_path(self, ns: str) -> str:
+        if self.base_path == ":memory:":
+            return ":memory:"
+        base = Path(self.base_path)
+        return str(base.with_name(f"{base.stem}.ns-{ns}{base.suffix or '.db'}"))
+
+    def get(self, ns: str | None = None) -> Store:
+        with self._lock:
+            if not ns:
+                if self._default is None:
+                    self._default = Store(self.base_path)
+                return self._default
+            if not valid_namespace(ns):
+                raise ValueError("invalid store namespace")
+            store = self._stores.get(ns)
+            if store is None:
+                store = self._stores[ns] = Store(self._ns_path(ns))
+            return store
+
+    def namespaces(self) -> list[str]:
+        with self._lock:
+            return sorted(self._stores)
+
+    def reset(self) -> int:
+        """Close and delete every namespaced store. Returns how many went."""
+        with self._lock:
+            old, self._stores = self._stores, {}
+        for store in old.values():
+            store.close()
+        removed = 0
+        if self.base_path != ":memory:":
+            base = Path(self.base_path)
+            pattern = f"{base.stem}.ns-*{base.suffix or '.db'}"
+            for f in base.parent.glob(pattern):
+                for extra in (f, Path(str(f) + "-journal"),
+                              Path(str(f) + "-wal"), Path(str(f) + "-shm")):
+                    try:
+                        extra.unlink()
+                    except FileNotFoundError:
+                        pass
+                removed += 1
+        return max(removed, len(old))

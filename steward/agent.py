@@ -70,10 +70,13 @@ class StewardAgent:
     """
 
     def __init__(self, model: Model | None = None, mcp_url: str = "",
-                 system_prompt: str = DEFAULT_SYSTEM_PROMPT) -> None:
+                 system_prompt: str = DEFAULT_SYSTEM_PROMPT,
+                 session_id: str = "") -> None:
         self._model = model or build_model()
         self._mcp_url = mcp_url or "http://127.0.0.1:8899/mcp"
         self._system_prompt = system_prompt
+        # Hosted demo: the MCP server keeps a separate store per session id.
+        self._session_id = session_id
         self._client: MCPClient | None = None
         self._agent: Agent | None = None
 
@@ -81,7 +84,9 @@ class StewardAgent:
         # Local MCP clients must bypass the egress proxy, and the vendored
         # httpx copy in mcp>=2 crashes parsing some no_proxy entries.
         sanitize_proxy_env()
-        self._client = MCPClient(url=self._mcp_url)
+        headers = ({"X-Steward-Session": self._session_id}
+                   if self._session_id else None)
+        self._client = MCPClient(url=self._mcp_url, headers=headers)
         try:
             # Agent init loads the tool provider, which starts the client.
             self._agent = Agent(model=self._model, tools=[self._client],
