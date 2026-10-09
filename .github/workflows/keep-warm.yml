@@ -1,0 +1,16 @@
+name: keep-warm
+
+# Keeps the Render free-tier demo from cold-sleeping by hitting /health
+# every 14 minutes. Scheduled workflows only run from the default branch,
+# so this file lives on main as a standalone addition (not a merge).
+on:
+  schedule:
+    - cron: "*/14 * * * *"
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Render health endpoint
+        run: curl -fsS --max-time 120 https://steward-demo-1kfp.onrender.com/health
