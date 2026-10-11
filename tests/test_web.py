@@ -81,3 +81,15 @@ def test_tools_endpoint():
     r = TestClient(app).get("/api/tools")
     assert r.status_code == 200
     assert r.json()["tools"] == ["clock_now", "reminder_add"]
+
+
+def test_tools_503_when_agent_unavailable():
+    # MCP server down (or any agent-init failure) is 503, not an
+    # unhandled 500: the dependency is unavailable.
+    def factory():
+        raise RuntimeError("failed to start MCP client: connection refused")
+
+    app = create_app(agent_factory=factory)
+    r = TestClient(app).get("/api/tools")
+    assert r.status_code == 503
+    assert "agent unavailable" in r.json()["detail"]

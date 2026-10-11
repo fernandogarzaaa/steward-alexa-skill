@@ -65,6 +65,11 @@ def create_app(agent_factory=None) -> FastAPI:
             agent = get_agent()
         except ConfigurationError as e:
             raise HTTPException(status_code=503, detail=str(e))
+        except Exception as e:
+            # e.g. the MCP server is unreachable: the service is
+            # unavailable, not internally broken.
+            raise HTTPException(status_code=503,
+                                detail=f"agent unavailable: {e}")
         return {"tools": agent.tool_names}
 
     @app.post("/api/chat")
