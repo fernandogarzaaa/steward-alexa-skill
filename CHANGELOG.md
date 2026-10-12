@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+- API-key auth for `/api/chat`, `/api/tools` (`STEWARD_API_KEY`) and the MCP
+  Streamable HTTP endpoint (`STEWARD_MCP_API_KEY`); the agent sends the MCP key.
+- Per-IP rate limits and a message-length cap on `/api/chat`; per-IP limit on `/mcp`.
+- Non-loopback binds without a key are refused unless `STEWARD_ALLOW_OPEN=1`.
+- Agent turns are serialized; error details are logged instead of returned.
+- Public `/health` liveness endpoint; `/api/health` no longer returns the MCP URL.
+
 ### Added / Changed
 - CI workflow running pytest on pushes to main and pull requests (Python 3.10 and 3.12)
 - Dependabot config for pip and GitHub Actions (weekly)

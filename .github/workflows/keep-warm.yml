@@ -3,10 +3,16 @@ name: keep-warm
 # Keeps the Render free-tier demo from cold-sleeping by hitting /health
 # every 14 minutes. Scheduled workflows only run from the default branch,
 # so this file lives on main as a standalone addition (not a merge).
+# It only GETs the public liveness probe, which returns {"ok": true} and
+# never touches the model or the MCP tools; /api/chat and /mcp require the
+# API key (STEWARD_API_KEY / STEWARD_MCP_API_KEY), so knowing the demo URL
+# from this file gives no access.
 on:
   schedule:
     - cron: "*/14 * * * *"
   workflow_dispatch:
+
+permissions: {}
 
 jobs:
   ping:
