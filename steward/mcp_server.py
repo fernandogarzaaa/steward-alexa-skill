@@ -7,6 +7,11 @@ over Streamable HTTP. Every tool below is backed by the local SQLite store,
 so the server runs with zero cloud dependencies.
 
 Run:  python -m steward.mcp_server [--host 127.0.0.1] [--port 8899]
+
+Access control: set STEWARD_MCP_API_KEY (or STEWARD_API_KEY) to require
+``Authorization: Bearer <key>`` on /mcp; requests are also rate-limited per
+client IP (STEWARD_MCP_RATE_LIMIT_PER_MIN, default 600). Binding to a
+non-loopback host without a key is refused unless STEWARD_ALLOW_OPEN=1.
 """
 from __future__ import annotations
 
@@ -17,6 +22,8 @@ import os
 from mcp.server.mcpserver import MCPServer
 from mcp.types import LATEST_PROTOCOL_VERSION
 
+from .security import (ApiKeyASGIMiddleware, RateLimiter, _int_env,
+                       check_bind, mcp_api_key)
 from .store import Store
 
 SERVER_NAME = "steward"
@@ -125,6 +132,14 @@ def protocol_version() -> str:
     return LATEST_PROTOCOL_VERSION
 
 
+def build_http_app(host: str = "127.0.0.1", key: str | None = None):
+    """The Streamable HTTP ASGI app at /mcp, wrapped with key auth + rate limit."""
+    key = mcp_api_key() if key is None else key
+    app = mcp.streamable_http_app(streamable_http_path="/mcp", host=host)
+    limiter = RateLimiter(_int_env("STEWARD_MCP_RATE_LIMIT_PER_MIN", 600), 60.0)
+    return ApiKeyASGIMiddleware(app, key=key, limiter=limiter)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Steward MCP server")
     parser.add_argument("--host", default=os.environ.get("STEWARD_MCP_HOST",
@@ -132,11 +147,15 @@ def main() -> None:
     parser.add_argument("--port", type=int,
                         default=int(os.environ.get("STEWARD_MCP_PORT", "8899")))
     args = parser.parse_args()
+    key = mcp_api_key()
+    check_bind(args.host, key, "the Steward MCP server")
     print(f"Steward MCP server {SERVER_VERSION} on "
           f"http://{args.host}:{args.port}/mcp "
-          f"(protocol {LATEST_PROTOCOL_VERSION})", flush=True)
-    mcp.run(transport="streamable-http", host=args.host, port=args.port,
-            streamable_http_path="/mcp")
+          f"(protocol {LATEST_PROTOCOL_VERSION}, "
+          f"auth {'on' if key else 'off'})", flush=True)
+    import uvicorn
+    uvicorn.run(build_http_app(host=args.host, key=key), host=args.host,
+                port=args.port, log_level="info")
 
 
 if __name__ == "__main__":

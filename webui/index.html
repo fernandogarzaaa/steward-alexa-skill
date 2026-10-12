@@ -83,14 +83,22 @@ async function send() {
   addMsg('user', text);
   const typing = addMsg('steward typing', 'Steward is working...');
   try {
+    const headers = {'Content-Type': 'application/json'};
+    const key = localStorage.getItem('stewardKey');
+    if (key) headers['X-Steward-Key'] = key;
     const r = await fetch('/api/chat', {
       method: 'POST',
-      headers: {'Content-Type': 'application/json'},
+      headers: headers,
       body: JSON.stringify({message: text})
     });
     const data = await r.json();
     typing.remove();
-    if (!r.ok) {
+    if (r.status === 401) {
+      // The server has STEWARD_API_KEY set: ask once, keep it in this browser.
+      const entered = window.prompt('This Steward demo needs an access key:');
+      if (entered) localStorage.setItem('stewardKey', entered.trim());
+      addMsg('steward', entered ? 'Key saved. Please send your message again.' : 'An access key is required.');
+    } else if (!r.ok) {
       addMsg('steward', 'Error: ' + (data.detail || r.status));
     } else {
       addMsg('steward', data.reply);

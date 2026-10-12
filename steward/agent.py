@@ -13,6 +13,7 @@ from strands.tools.mcp import MCPClient
 
 from .models import build_model
 from .netenv import sanitize_proxy_env
+from .security import mcp_api_key
 
 DEFAULT_SYSTEM_PROMPT = """You are Steward, a household operations assistant
 running as an Alexa+ Agent Skill. You help one person run their personal life:
@@ -81,7 +82,9 @@ class StewardAgent:
         # Local MCP clients must bypass the egress proxy, and the vendored
         # httpx copy in mcp>=2 crashes parsing some no_proxy entries.
         sanitize_proxy_env()
-        self._client = MCPClient(url=self._mcp_url)
+        key = mcp_api_key()
+        headers = {"Authorization": f"Bearer {key}"} if key else None
+        self._client = MCPClient(url=self._mcp_url, headers=headers)
         try:
             # Agent init loads the tool provider, which starts the client.
             self._agent = Agent(model=self._model, tools=[self._client],
