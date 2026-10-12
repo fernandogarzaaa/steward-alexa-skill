@@ -376,3 +376,50 @@ def test_agent_sends_mcp_key(monkeypatch):
     with pytest.raises(RuntimeError):
         agent_mod.StewardAgent(model=object(), mcp_url="http://x/mcp").__enter__()
     assert seen["headers"] is None
+
+
+def test_key_matches_returns_strict_bools():
+    assert key_matches("a", "a") is True
+    assert key_matches("a", "b") is False
+    assert key_matches("", "") is False
+    assert key_matches("a", "") is False
+    assert key_matches("", "a") is False
+
+
+def test_default_chat_rate_limit_is_20_per_minute(monkeypatch):
+    monkeypatch.delenv("STEWARD_RATE_LIMIT_PER_MIN", raising=False)
+    app, _ = _app(api_key="")
+    c = TestClient(app)
+    codes = [c.post("/api/chat", json={"message": "hi"}).status_code for _ in range(21)]
+    assert codes[:20] == [200] * 20 and codes[20] == 429
+    assert c.post("/api/chat", json={"message": "hi"}).headers["retry-after"] == "60"
+
+
+def test_rate_limiter_boundary_eviction():
+    now = [0.0]
+    rl = RateLimiter(5, 10.0, clock=lambda: now[0], max_keys=1)
+    rl.allow("a")
+    now[0] = 10.0  # exactly one window later: "a" is idle and evictable
+    assert rl.allow("b")
+    assert set(rl._hits) == {"b"}
+
+
+@pytest.mark.parametrize("module,argv_host,env_key", [
+    ("web", "127.0.0.1", "STEWARD_API_KEY"),
+    ("mcp_server", "0.0.0.0", "STEWARD_MCP_API_KEY"),
+])
+def test_main_passes_host_and_port_to_uvicorn(monkeypatch, module, argv_host, env_key):
+    import importlib
+    import sys
+
+    import uvicorn
+
+    mod = importlib.import_module(f"steward.{module}")
+    seen = {}
+    monkeypatch.setattr(uvicorn, "run", lambda app, host, port, **kw: seen.update(host=host, port=port, app=app))
+    monkeypatch.setenv(env_key, "k")
+    monkeypatch.setattr(sys, "argv", [module, "--host", argv_host, "--port", "9123"])
+    mod.main()
+    assert seen["host"] == argv_host and seen["port"] == 9123
+    if module == "mcp_server":
+        assert isinstance(seen["app"], ApiKeyASGIMiddleware) and seen["app"].key == "k"
