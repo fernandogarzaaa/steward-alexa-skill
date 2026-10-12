@@ -8,7 +8,7 @@
   :root { color-scheme: dark; }
   body { font-family: system-ui, -apple-system, sans-serif; background: #0d1117;
          color: #e6edf3; margin: 0; display: flex; flex-direction: column;
-         height: 100vh; }
+         height: 100vh; height: 100dvh; }
   header { padding: 14px 20px; border-bottom: 1px solid #21262d; }
   header h1 { font-size: 18px; margin: 0; }
   header p { font-size: 12px; color: #8b949e; margin: 4px 0 0; }
@@ -35,6 +35,8 @@
            background: #1f6feb; color: white; font-size: 15px; cursor: pointer; }
   button:disabled { opacity: 0.5; cursor: default; }
   .typing { color: #8b949e; font-style: italic; }
+  .error { border-color: #f85149; }
+  #input:focus-visible, button:focus-visible { outline: 2px solid #58a6ff; outline-offset: 2px; }
 </style>
 </head>
 <body>
@@ -42,12 +44,12 @@
   <h1>Steward</h1>
   <p>Alexa+ Agent Skill - simulated experience. Backed by a live self-hosted MCP server.</p>
 </header>
-<div id="chat"></div>
-<div id="bar">
+<main id="chat" role="log" aria-live="polite" aria-label="Conversation with Steward"></main>
+<form id="bar">
   <input id="input" type="text" placeholder="Ask Steward to run an errand..."
-         autocomplete="off">
-  <button id="send">Send</button>
-</div>
+         aria-label="Message to Steward" autocomplete="off" maxlength="2000">
+  <button id="send" type="submit">Send</button>
+</form>
 <script>
 const chat = document.getElementById('chat');
 const input = document.getElementById('input');
@@ -75,9 +77,26 @@ function addTools(calls) {
   chat.scrollTop = chat.scrollHeight;
 }
 
+let busy = false;
+
+// Render returns HTML (not JSON) while a cold instance wakes up or on a
+// proxy error; never let that surface as "Unexpected token <".
+async function readJson(r) {
+  try { return await r.json(); } catch (_) { return {}; }
+}
+
+function errorText(status, data) {
+  if (status === 429) return 'Too many requests. Please wait a minute and try again.';
+  if (status === 413) return 'That message is too long. Please shorten it.';
+  if (status === 502 || status === 503 || status === 504)
+    return 'Steward is waking up or temporarily unavailable. Please try again in a moment.';
+  return 'Error: ' + (data.detail || status);
+}
+
 async function send() {
   const text = input.value.trim();
-  if (!text) return;
+  if (!text || busy) return;
+  busy = true;
   input.value = '';
   sendBtn.disabled = true;
   addMsg('user', text);
@@ -91,7 +110,7 @@ async function send() {
       headers: headers,
       body: JSON.stringify({message: text})
     });
-    const data = await r.json();
+    const data = await readJson(r);
     typing.remove();
     if (r.status === 401) {
       // The server has STEWARD_API_KEY set: ask once, keep it in this browser.
@@ -99,20 +118,20 @@ async function send() {
       if (entered) localStorage.setItem('stewardKey', entered.trim());
       addMsg('steward', entered ? 'Key saved. Please send your message again.' : 'An access key is required.');
     } else if (!r.ok) {
-      addMsg('steward', 'Error: ' + (data.detail || r.status));
+      addMsg('steward error', errorText(r.status, data));
     } else {
       addMsg('steward', data.reply);
       addTools(data.tool_calls);
     }
   } catch (e) {
     typing.remove();
-    addMsg('steward', 'Error: ' + e.message);
+    addMsg('steward error', 'Could not reach Steward. Check your connection and try again.');
   }
+  busy = false;
   sendBtn.disabled = false;
   input.focus();
 }
-sendBtn.onclick = send;
-input.onkeydown = e => { if (e.key === 'Enter') send(); };
+document.getElementById('bar').onsubmit = e => { e.preventDefault(); send(); };
 addMsg('steward', 'Hi, I am Steward. Ask me to plan your day, set reminders, or keep notes.');
 input.focus();
 </script>
