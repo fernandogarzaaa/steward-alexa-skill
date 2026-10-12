@@ -162,6 +162,31 @@ tests/           pytest suite (21 tests)
 | `STEWARD_MODEL_BASE_URL` | (unset) | OpenAI-compatible base URL |
 | `STEWARD_MODEL_API_KEY` | (unset) | Key for the OpenAI-compatible endpoint |
 | `STEWARD_MODEL_ID` | (unset) | Model id for the OpenAI-compatible endpoint |
+| `STEWARD_API_KEY` | (unset) | Required key for `/api/chat` and `/api/tools` (`Authorization: Bearer <key>` or `X-Steward-Key`) |
+| `STEWARD_MCP_API_KEY` | `STEWARD_API_KEY` | Required bearer key for the MCP endpoint `/mcp`; the agent sends it automatically |
+| `STEWARD_RATE_LIMIT_PER_MIN` | `20` | `/api/chat` requests per client IP per minute (`0` disables) |
+| `STEWARD_MCP_RATE_LIMIT_PER_MIN` | `600` | MCP requests per client IP per minute |
+| `STEWARD_MAX_MESSAGE_CHARS` | `2000` | Longest accepted chat message |
+| `STEWARD_ALLOW_OPEN` | (unset) | Set to `1` to allow a non-loopback bind **without** a key (open demo; rate limits still apply) |
+
+## Security
+
+Every chat turn spends model credits and the MCP tools read and write the
+store, so neither should be reachable anonymously from the internet.
+
+- Local use (`127.0.0.1`, the default) needs no configuration.
+- Binding to anything else (`--host 0.0.0.0`, e.g. on Render) **refuses to
+  start** unless `STEWARD_API_KEY` (web) / `STEWARD_MCP_API_KEY` (MCP) is set,
+  or `STEWARD_ALLOW_OPEN=1` is set on purpose.
+- With a key set, the web UI asks for it once (on the first 401) and keeps it in
+  the browser's localStorage. `/health` and `/api/health` stay public and reveal
+  nothing sensitive (the keep-warm workflow only pings `/health`).
+- `/api/chat` is rate-limited per client IP and capped in message length;
+  agent turns are serialized; internal error details are logged, not returned.
+
+For a hosted demo, set the same `STEWARD_API_KEY` on the web service and
+`STEWARD_MCP_API_KEY` (or the same key) on both services, and share the key
+only with the people who should use it.
 
 ## License
 

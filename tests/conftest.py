@@ -61,3 +61,38 @@ def mcp_server_url():
         proc.wait(timeout=10)
     except subprocess.TimeoutExpired:
         proc.kill()
+
+
+@pytest.fixture(scope="session")
+def mcp_server_url_with_key():
+    """The MCP server started with STEWARD_MCP_API_KEY set."""
+    key = "test-mcp-key"
+    port = _free_port()
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    proc = subprocess.Popen(
+        [sys.executable, "-m", "steward.mcp_server",
+         "--host", "127.0.0.1", "--port", str(port)],
+        cwd=root, env={**os.environ, "PYTHONPATH": root,
+                       "STEWARD_MCP_API_KEY": key},
+        stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
+    )
+    deadline = time.time() + 30
+    while time.time() < deadline:
+        if proc.poll() is not None:
+            pytest.fail("MCP server exited early:\n" + (proc.stdout.read() if proc.stdout else ""))
+        with socket.socket() as s:
+            s.settimeout(0.5)
+            try:
+                s.connect(("127.0.0.1", port))
+                break
+            except OSError:
+                time.sleep(0.2)
+    else:
+        proc.terminate()
+        pytest.fail("MCP server did not start in 30s")
+    yield f"http://127.0.0.1:{port}/mcp", key
+    proc.terminate()
+    try:
+        proc.wait(timeout=10)
+    except subprocess.TimeoutExpired:
+        proc.kill()
