@@ -27,7 +27,7 @@ from .security import (ApiKeyASGIMiddleware, RateLimiter, _int_env,
 from .store import Store
 
 SERVER_NAME = "steward"
-SERVER_VERSION = "1.0.0"
+SERVER_VERSION = "1.0.1"
 
 mcp = MCPServer(SERVER_NAME, version=SERVER_VERSION)
 store = Store()
