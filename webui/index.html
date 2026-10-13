@@ -86,11 +86,19 @@ async function readJson(r) {
 }
 
 function errorText(status, data) {
+  // data.detail is only present when Steward itself answered (JSON); a cold
+  // host or proxy error page has no detail.
+  const detail = typeof data.detail === 'string' ? data.detail
+    : (data.detail ? JSON.stringify(data.detail) : '');
   if (status === 429) return 'Too many requests. Please wait a minute and try again.';
   if (status === 413) return 'That message is too long. Please shorten it.';
+  if (status === 503 && detail) return 'Steward is not set up yet: ' + detail;
+  if (status === 502 && detail)
+    return 'Steward could not finish that request: the model or the MCP server failed. ' +
+      'Check that both are running and configured, then try again.';
   if (status === 502 || status === 503 || status === 504)
     return 'Steward is waking up or temporarily unavailable. Please try again in a moment.';
-  return 'Error: ' + (data.detail || status);
+  return 'Error: ' + (detail || status);
 }
 
 async function send() {

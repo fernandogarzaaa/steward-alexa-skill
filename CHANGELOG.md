@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-10-13
+
+### Fixed
+- Web UI: with no model configured, every message answered "Steward is waking
+  up or temporarily unavailable. Please try again in a moment." although the
+  server returned a precise setup error. A 503 that carries Steward's own
+  detail now shows it ("Steward is not set up yet: No model configured. Set
+  STEWARD_MODEL_BASE_URL ..."), and a 502 from a failed agent run points at the
+  model or the MCP server. The generic "waking up" text is kept only for
+  non-JSON responses (cold start / proxy pages). Validation errors no longer
+  render as `[object Object]`.
+
 ## [1.0.0] - 2026-10-13
 
 First tagged release of the hackathon build, including the October 2026 hardening.
