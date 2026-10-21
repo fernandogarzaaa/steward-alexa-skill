@@ -5,77 +5,185 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Steward - Alexa+ Agent Skill (simulated experience)</title>
 <style>
-  :root { color-scheme: dark; }
-  body { font-family: system-ui, -apple-system, sans-serif; background: #0d1117;
-         color: #e6edf3; margin: 0; display: flex; flex-direction: column;
-         height: 100vh; }
-  header { padding: 14px 20px; border-bottom: 1px solid #21262d; }
-  header h1 { font-size: 18px; margin: 0; }
-  header p { font-size: 12px; color: #8b949e; margin: 4px 0 0; }
-  #chat { flex: 1; overflow-y: auto; padding: 20px; display: flex;
-          flex-direction: column; gap: 12px; max-width: 760px; width: 100%;
-          margin: 0 auto; box-sizing: border-box; }
-  .msg { padding: 10px 14px; border-radius: 12px; max-width: 85%;
-         line-height: 1.45; white-space: pre-wrap; }
-  .user { align-self: flex-end; background: #1f6feb; }
-  .steward { align-self: flex-start; background: #161b22;
-             border: 1px solid #30363d; }
-  .tools { align-self: flex-start; font-size: 12px; color: #8b949e;
-           max-width: 85%; }
-  .tools code { background: #161b22; border: 1px solid #30363d;
-                border-radius: 6px; padding: 2px 6px; margin-right: 6px;
-                display: inline-block; margin-bottom: 4px; }
-  #bar { display: flex; gap: 10px; padding: 14px 20px;
-         border-top: 1px solid #21262d; max-width: 760px; width: 100%;
-         margin: 0 auto; box-sizing: border-box; }
-  #input { flex: 1; padding: 10px 14px; border-radius: 10px;
-           border: 1px solid #30363d; background: #161b22; color: #e6edf3;
-           font-size: 15px; }
-  button { padding: 10px 20px; border-radius: 10px; border: none;
-           background: #1f6feb; color: white; font-size: 15px; cursor: pointer; }
+  :root {
+    color-scheme: light;
+    --ground: #e8e9e8;
+    --surface: #dcdedc;
+    --field: #ffffff;
+    --ink: #062b8a;
+    --muted: #3a5aa8;
+    --accent: #062b8a;
+    --accent-ink: #e8e9e8;
+    --font-display: Georgia, "Times New Roman", serif;
+    --font-text: system-ui, sans-serif;
+    --ease-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--ground); color: var(--ink); font-family: var(--font-text); font-size: 17px; line-height: 1.5; }
+  .wrap { padding: 32px; max-width: 1100px; margin: 0 auto; }
+  .narrow { max-width: 1000px; }
+  header.top { display: flex; justify-content: space-between; gap: 24px; align-items: baseline; }
+  .wordmark { font-family: var(--font-display); font-size: 24px; font-weight: 400; }
+  .simulated { font-size: 14px; color: var(--muted); text-align: right; max-width: 40ch; }
+  h1 { font-family: var(--font-display); font-weight: 400; font-size: clamp(32px, 6vw, 64px); line-height: 0.95; letter-spacing: -0.03em; margin: 48px 0 16px; max-width: none; }
+  h1 .line { display: block; overflow: hidden; padding-bottom: 0.08em; margin-bottom: -0.08em; }
+  h1 .line > span { display: block; }
+  .lead { font-size: 20px; line-height: 1.35; max-width: 62ch; margin: 0 0 8px; }
+  #demo-note { font-size: 14px; color: var(--muted); margin: 0 0 32px; max-width: 62ch; }
+  .daybook { background: var(--field); padding: 20px 24px; margin-bottom: 32px; }
+  .daybook h2 { font-family: var(--font-display); font-size: 24px; font-weight: 400; margin: 0 0 4px; }
+  .daybook p { font-size: 14px; color: var(--muted); margin: 0 0 12px; }
+  .steps { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px 24px; }
+  .steps li { font-size: 15px; }
+  .steps time { font-variant-numeric: tabular-nums; color: var(--muted); margin-right: 8px; }
+  .steps .empty { color: var(--muted); }
+  #chat { display: flex; flex-direction: column; gap: 16px; padding-bottom: 24px; }
+  .msg { padding: 14px 16px; line-height: 1.5; white-space: pre-wrap; max-width: 85%; }
+  .user { align-self: flex-end; background: var(--accent); color: var(--accent-ink); }
+  .steward { align-self: flex-start; background: var(--field); font-family: var(--font-display); font-size: 19px; line-height: 1.45; }
+  .typing { color: var(--muted); font-style: italic; }
+  .errand { background: var(--field); padding: 16px; display: grid; grid-template-columns: 72px 1fr auto; gap: 16px; align-items: baseline; }
+  .errand time { font-variant-numeric: tabular-nums; font-size: 14px; color: var(--muted); }
+  .errand .title { font-size: 17px; font-weight: 600; }
+  .errand .status { font-size: 14px; color: var(--muted); }
+  .errand button { grid-column: 3; text-align: right; }
+  .errand .detail { grid-column: 1 / 4; font-size: 15px; color: var(--muted); }
+  .errand button { background: transparent; color: var(--ink); border: 0; padding: 0; font-size: 15px; cursor: pointer; text-decoration: underline; text-underline-offset: 0.18em; }
+  .quick { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+  .quick button { background: var(--surface); color: var(--ink); border: 0; padding: 12px 16px; font-size: 15px; cursor: pointer; min-height: 44px; }
+  #bar { position: sticky; bottom: 0; margin: 0 auto; display: flex; gap: 12px; padding: 16px 32px; background: var(--surface); max-width: 1100px; }
+  #input { flex: 1; min-width: 0; min-height: 44px; padding: 12px 14px; border: 0; background: var(--field); color: var(--ink); font-size: 17px; font-family: var(--font-text); }
+  #send { min-height: 44px; padding: 12px 24px; border: 0; background: var(--accent); color: var(--accent-ink); font-size: 17px; cursor: pointer; }
+  button, input { font-family: var(--font-text); }
+  input::placeholder { font-family: var(--font-text); }
   button:disabled { opacity: 0.5; cursor: default; }
-  .typing { color: #8b949e; font-style: italic; }
+  button:active { transform: scale(0.97); }
+  input:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  ::selection { background: var(--accent); color: var(--accent-ink); }
+  .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  @media (prefers-reduced-motion: no-preference) {
+    .js h1 .line > span { transform: translateY(105%); animation: line-up 800ms var(--ease-expo) forwards; animation-delay: calc(var(--i) * 110ms + 100ms); }
+  }
+  @keyframes line-up { to { transform: none; } }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+  @media (max-width: 600px) {
+    .wrap { padding: 20px; }
+    header.top { flex-direction: column; gap: 4px; }
+    .simulated { text-align: left; }
+    h1 { margin-top: 32px; }
+    .errand { grid-template-columns: 1fr auto; }
+    .errand time { grid-column: 1 / 3; }
+    .errand button { grid-column: 2; }
+    .errand .detail { grid-column: 1 / 3; }
+    #bar { padding: 12px 20px; }
+    .msg { max-width: 100%; }
+  }
 </style>
+<script>document.documentElement.classList.add('js')</script>
 </head>
 <body>
-<header>
-  <h1>Steward</h1>
-  <p>Alexa+ Agent Skill - simulated experience. Backed by a live self-hosted MCP server.</p>
-  <p id="demo-note" hidden></p>
-</header>
-<div id="chat"></div>
+<div class="wrap">
+  <header class="top">
+    <div class="wordmark">Steward</div>
+    <p class="simulated">Alexa+ Agent Skill, simulated experience. Backed by a live self-hosted MCP server.</p>
+  </header>
+  <h1>
+    <span class="line"><span style="--i:0">Tell Steward.</span></span>
+    <span class="line"><span style="--i:1">Day, written down.</span></span>
+  </h1>
+  <p class="lead">A voice-first Alexa+ skill, simulated here. Say an errand in plain words, and Steward runs it with its calendar, reminders and notes.</p>
+  <p id="demo-note">Checking demo status.</p>
+  <section class="daybook narrow" aria-label="Today in the daybook">
+    <h2>Today in the daybook</h2>
+    <p>Each errand Steward runs lands here, with the time it ran.</p>
+    <ul class="steps" id="steps"><li class="empty">No errands yet today</li></ul>
+  </section>
+  <div class="quick narrow" aria-label="Try an errand">
+    <button type="button" data-q="Plan my day">Plan my day</button>
+    <button type="button" data-q="Remind me to water the plants at 7pm">Remind me to water the plants at 7pm</button>
+    <button type="button" data-q="What notes do I have?">What notes do I have?</button>
+  </div>
+  <div id="chat" class="narrow" role="log" aria-live="polite" aria-label="Conversation"></div>
+</div>
 <div id="bar">
-  <input id="input" type="text" placeholder="Ask Steward to run an errand..."
-         autocomplete="off">
+  <label for="input" class="sr-only">Message to Steward</label>
+  <input id="input" type="text" placeholder="Ask Steward..." autocomplete="off">
   <button id="send">Send</button>
 </div>
 <script>
 const chat = document.getElementById('chat');
 const input = document.getElementById('input');
 const sendBtn = document.getElementById('send');
-
+const stepsEl = document.getElementById('steps');
+const TITLES = {
+  reminder_add: 'Set a reminder', reminder_list: 'List reminders', reminder_delete: 'Delete a reminder',
+  note_add: 'Save a note', note_list: 'List notes', note_delete: 'Delete a note',
+  calendar_add: 'Add to calendar', calendar_list: 'Check the calendar', calendar_delete: 'Delete a calendar entry',
+  clock_now: 'Check the time', preference_get: 'Check a preference', preference_set: 'Set a preference'
+};
+function plainName(name) {
+  return TITLES[name] || name.replace(/_/g, ' ').replace(/\b\w/g, function(c) { return c.toUpperCase(); });
+}
+function plainValue(v) {
+  if (v === null || v === undefined) return 'none';
+  if (typeof v === 'object') {
+    const entries = Object.entries(v).map(function(pair) {
+      const k = pair[0].replace(/_/g, ' ');
+      return k + ': ' + (typeof pair[1] === 'object' ? JSON.stringify(pair[1]) : pair[1]);
+    });
+    return entries.length ? entries.join(', ') : 'none';
+  }
+  return String(v);
+}
+function nowTime() {
+  const d = new Date();
+  return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+}
 function addMsg(cls, text) {
   const d = document.createElement('div');
   d.className = 'msg ' + cls;
   d.textContent = text;
   chat.appendChild(d);
-  chat.scrollTop = chat.scrollHeight;
   return d;
+}
+function addErrand(call) {
+  const time = nowTime();
+  const title = plainName(call.name);
+  const d = document.createElement('div');
+  d.className = 'errand';
+  const t = document.createElement('time');
+  t.textContent = time;
+  const name = document.createElement('div');
+  name.className = 'title';
+  name.textContent = title;
+  const status = document.createElement('div');
+  status.className = 'status';
+  status.textContent = 'Done';
+  const toggle = document.createElement('button');
+  toggle.type = 'button';
+  toggle.textContent = 'Show details';
+  const detail = document.createElement('div');
+  detail.className = 'detail';
+  detail.hidden = true;
+  detail.textContent = plainValue(call.input);
+  toggle.onclick = function() {
+    detail.hidden = !detail.hidden;
+    toggle.textContent = detail.hidden ? 'Show details' : 'Hide details';
+  };
+  d.append(t, name, status, toggle, detail);
+  chat.appendChild(d);
+  const empty = stepsEl.querySelector('.empty');
+  if (empty) empty.remove();
+  const li = document.createElement('li');
+  const lt = document.createElement('time');
+  lt.textContent = time;
+  li.append(lt, document.createTextNode(title));
+  stepsEl.appendChild(li);
 }
 function addTools(calls) {
   if (!calls || !calls.length) return;
-  const d = document.createElement('div');
-  d.className = 'tools';
-  d.textContent = 'tools used: ';
-  calls.forEach(c => {
-    const code = document.createElement('code');
-    code.textContent = c.name;
-    d.appendChild(code);
-  });
-  chat.appendChild(d);
-  chat.scrollTop = chat.scrollHeight;
+  calls.forEach(addErrand);
 }
-
 async function send() {
   const text = input.value.trim();
   if (!text) return;
@@ -90,30 +198,35 @@ async function send() {
       body: JSON.stringify({message: text})
     });
     const data = await r.json();
-    typing.remove();
     if (!r.ok) {
-      addMsg('steward', 'Error: ' + (data.detail || r.status));
+      typing.className = 'msg steward';
+      typing.textContent = 'Error: ' + (data.detail || r.status);
     } else {
-      addMsg('steward', data.reply);
+      typing.className = 'msg steward';
+      typing.textContent = data.reply;
       addTools(data.tool_calls);
     }
   } catch (e) {
-    typing.remove();
-    addMsg('steward', 'Error: ' + e.message);
+    typing.className = 'msg steward';
+    typing.textContent = 'Error: ' + e.message;
   }
   sendBtn.disabled = false;
   input.focus();
 }
 sendBtn.onclick = send;
-input.onkeydown = e => { if (e.key === 'Enter') send(); };
-fetch('/api/health').then(r => r.json()).then(h => {
-  if (!h.demo) return;
+input.onkeydown = function(e) { if (e.key === 'Enter') send(); };
+document.querySelectorAll('[data-q]').forEach(function(btn) {
+  btn.onclick = function() { input.value = btn.getAttribute('data-q'); input.focus(); };
+});
+fetch('/api/health').then(function(r) { return r.json(); }).then(function(h) {
   const n = document.getElementById('demo-note');
+  if (!h.demo) { n.textContent = 'Demo status could not be checked. Steward may still answer errands.'; return; }
   const hrs = h.demo.reset_hours;
   n.textContent = 'Public demo: what you save is visible only to this browser' +
     (hrs ? ' and the demo resets every ' + hrs + ' hours.' : '.');
-  n.hidden = false;
-}).catch(() => {});
+}).catch(function() {
+  document.getElementById('demo-note').textContent = 'Demo status could not be checked. Steward may still answer errands.';
+});
 addMsg('steward', 'Hi, I am Steward. Ask me to plan your day, set reminders, or keep notes.');
 input.focus();
 </script>
